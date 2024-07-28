@@ -1,0 +1,15 @@
+# Nix and friends
+.direnv/
+.devenv/
+.pre-commit-config.yaml
+
+# Scala
+.bsp/
+.bloop/
+.metals/
+metals.sbt
+target/
+result
+
+# Misc
+.DS_Store
