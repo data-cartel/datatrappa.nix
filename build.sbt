@@ -33,7 +33,6 @@ lazy val scala2Settings = Seq(
   scalacOptions ++= Seq(
     "-Ytasty-reader",
     "-Wunused:imports",
-    "-deprecation",
     "-Yrangepos",
     "-feature"
   )
@@ -42,8 +41,8 @@ lazy val scala2Settings = Seq(
 lazy val root = (project in file("."))
   .aggregate(sparcala)
   .settings(
-    name := "datatrappa",
-    scalafixOnCompile := true
+    name := "datatrappa"
+    // scalafixOnCompile := true
   )
 
 val SparkVersion = "3.5.1"
@@ -63,12 +62,10 @@ lazy val sparcala = (project in file("sparcala"))
     ),
     assembly / mainClass := Some("data.cartel.sparcala.Sparcala"),
     assembly / assemblyJarName := "sparcala.jar",
-    assembly / assemblyShadeRules := Seq(
-      ShadeRule.rename("shapeless.**" -> "new_shapeless.@1").inAll,
-      ShadeRule.rename("cats.kernel.**" -> s"new_cats.kernel.@1").inAll
-    ),
     assembly / assemblyMergeStrategy := {
-      case PathList("META-INF", xs @ _*) => MergeStrategy.discard
-      case x                             => MergeStrategy.first
+      case PathList("META-INF", "services", xs @ _*) => MergeStrategy.filterDistinctLines
+      case PathList("META-INF", xs @ _*)             => MergeStrategy.discard
+      case "application.conf"                        => MergeStrategy.concat
+      case _                                         => MergeStrategy.first
     }
   )

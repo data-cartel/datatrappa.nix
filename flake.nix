@@ -56,8 +56,7 @@
           home = "${spark.pkg}";
           env = {
             SPARK_HOME = "${spark.home}";
-            SPARK_CONF_DIR =
-              "~/code/0xgleb/data-cartel/datatrappa.nix/sparkonf";
+            SPARK_CONF_DIR = ./sparkonf;
             SPARK_LOG_DIR = "/var/log/spark";
             SPARK_WORKER_DIR = "/var/lib/spark";
             SPARK_LOCAL_IP = "127.0.0.1";
@@ -182,8 +181,10 @@
                 parquet-tools
                 jdk11
                 metals
-                grafana
-                prometheus
+                pyright
+                black
+                # grafana
+                # prometheus
               ] ++ kafka.shellDeps ++ scala.deps;
 
             env = envvars;
@@ -194,6 +195,14 @@
             languages = {
               nix.enable = true;
               scala.enable = true;
+              python = {
+                enable = true;
+                venv = {
+                  enable = true;
+                  quiet = true;
+                  requirements = builtins.readFile ./requirements.txt;
+                };
+              };
             };
 
             scripts = kafka.scripts // {

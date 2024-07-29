@@ -55,7 +55,7 @@ let num =
       {   -- The number of threads that the server uses for receiving requests from the network and sending responses to the network
           network
         . threads
-        = "3"
+        = "8"
       ,   -- The number of threads that the server uses for processing requests, which may include disk I/O
           io
         . threads
@@ -63,12 +63,12 @@ let num =
       , -- The default number of log partitions per topic. More partitions allow greater
         -- parallelism for consumption, but this will also result in more files across
         -- the brokers.
-        partitions = "1"
+        partitions = "3"
       ,   -- The number of threads per data directory to be used for log recovery at startup and flushing at shutdown.
           -- This value is recommended to be increased for installations with data dirs located in RAID array.
           recovery
         . threadsPerDataDir
-        = "1"
+        = "4"
       }
 
 let socket =
@@ -90,18 +90,21 @@ let socket =
       }
 
 let log =
-      { retention = { hours = "168", check.interval.ms = "300000" }
+      { retention = { hours = "4", check.interval.ms = "300000" }
       , segment.bytes = "1073741824"
       , dirs = "/tmp/kraft-combined-logs"
-      , flush.interval.messages = "10000"
+      , flush.interval.messages = "100"
       , flush.interval.ms = "1000"
       }
 
-let offsets = { topic.replication.factor = "1" }
+let offsets = { topic.replication.factor = "3" }
+
+let autoCreateTopicsEnable = "true"
 
 let transaction = { state.log = { replication.factor = "1", min.isr = "1" } }
 
 in  ''
+    auto.create.topics.enable=${autoCreateTopicsEnable}
     process.roles=${process.roles}
     node.id=${node.id}
     controller.quorum.voters=${controller.quorum.voters}
