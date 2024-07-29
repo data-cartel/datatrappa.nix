@@ -53,59 +53,10 @@
         pkgs = import nixpkgs {
           inherit system;
           overlays = [ typelevel.overlays.default ];
-          # openssl = nixpkgs.openssl_3;
         };
 
         kafka = import ./kafka.nix { inherit pkgs; };
-        spark = {
-          pkg = pkgs.spark.overrideAttrs (super: rec {
-            pname = "spark";
-            version = "3.5.1";
-            untarDir = "${pname}-${version}";
-            hadoopSupport = false;
-            src = pkgs.fetchzip {
-              url =
-                "mirror://apache/spark/${pname}-${version}/${pname}-${version}-bin-hadoop3-scala2.13.tgz";
-              sha256 = "sha256-2SigM9iAsbXiw6znSlqT2xoaHbU5HXm4bUnyXmpMueM";
-            };
-          });
-
-          home = "${spark.pkg}";
-          env = {
-            SPARK_HOME = "${spark.home}";
-            SPARK_CONF_DIR = ./sparkonf;
-            SPARK_LOG_DIR = "/var/log/spark";
-            SPARK_WORKER_DIR = "/var/lib/spark";
-            SPARK_LOCAL_IP = "127.0.0.1";
-            SPARK_MASTER = "";
-            SPARK_MASTER_HOST = "127.0.0.1";
-            SPARK_MASTER_PORT = "7077";
-            SPARK_WORKER_CORES = "8";
-            SPARK_WORKER_MEMORY = "8g";
-          };
-        };
-
-        scala = {
-          mkJar = scalaVersion: project:
-            pkgs.stdenv.mkDerivation {
-              name = "${project}-jar-${version}";
-              src = ./.;
-              buildInputs = [ pkgs.jdk11 pkgs.sbt ];
-              # export SBT_DEPS=$(mktemp -d)
-              # export SBT_OPTS="-Dsbt.global.base=$SBT_DEPS/project/.sbtboot -Dsbt.boot.directory=$SBT_DEPS/project/.boot -Dsbt.ivy.home=$SBT_DEPS/project/.ivy $SBT_OPTS"
-              # export COURSIER_CACHE=$SBT_DEPS/project/.coursier
-              # mkdir -p $SBT_DEPS/project/{.sbtboot,.boot,.ivy,.coursier}
-              buildPhase = ''
-                ${pkgs.sbt}/bin/sbt ${project}/assembly
-              '';
-              installPhase = ''
-                mkdir -p $out/bin
-                cp ${project}/target/scala-${scalaVersion}/${project}.jar $out/bin/${project}.jar
-              '';
-            };
-
-          deps = [ pkgs.scalafmt spark.pkg ];
-        };
+        spark = import ./spark.nix { inherit pkgs; };
 
         sparcala = {
           name = "sparcala";
@@ -177,18 +128,18 @@
         };
 
       in rec {
-        packages = kafka.packages // {
-          default = sparcala.package;
-          spark = spark.pkg;
-          sparcala = sparcala.package;
+        packages = kafka.packages // spark.packages // rec {
+          scalapuff = sparcala.package;
           devenv-up = self.devShells.${system}.default.config.procfileScript;
+          default = devenv-up;
         };
 
-        apps = kafka.apps // { sparcala = sparcala.app; };
+        apps = kafka.apps // { scalapuff = sparcala.app; };
 
         devShells.default = devenv.lib.mkShell {
           inherit inputs pkgs;
-          modules = [{
+          modules = let cmd = kafka.cmd // spark.cmd;
+          in [{
             # https://devenv.sh/reference/options/
             packages = with pkgs;
               [
@@ -197,18 +148,13 @@
                 dhall
                 pqrs
                 parquet-tools
-                jdk11
                 metals
                 pyright
                 black
+                plumber
                 # grafana
                 # prometheus
-              ] ++ kafka.shellDeps ++ scala.deps;
-
-            env = envvars;
-            pre-commit = { inherit hooks; };
-            difftastic.enable = true;
-            cachix.enable = true;
+              ] ++ kafka.shellDeps ++ spark.shellDeps;
 
             languages = {
               nix.enable = true;
@@ -223,25 +169,18 @@
               };
             };
 
-            scripts = kafka.scripts // {
-              sparkup.exec = ''
-                ${spark.pkg}/bin/start-master.sh \
-                  && ${spark.pkg}/bin/start-worker.sh spark://127.0.0.1:7077
-              '';
-
-              sparkout.exec = ''
-                ${spark.pkg}/bin/stop-worker.sh \
-                  && ${spark.pkg}/bin/stop-master.sh
-              '';
-
-              scalapuff.exec = ''
-                ${pkgs.sbt}/bin/sbt assembly \
-                  && ${spark.pkg}/bin/spark-submit \
-                      --class data.cartel.sparcala.Sparcala \
-                      --master spark://${spark.env.SPARK_MASTER_HOST}:${spark.env.SPARK_MASTER_PORT} \
-                      sparcala/target/scala-2.13/sparcala.jar
-              '';
+            process = let join = pkgs.lib.concatStringsSep "\n";
+            in with cmd; {
+              before = join [ kafkup sparkup ];
+              after = join [ kafkout sparkout ];
             };
+            processes = with cmd; { scalapuff.exec = scalapuff; };
+            scripts = pkgs.lib.mapAttrs (cmd: exec: { inherit exec; }) cmd;
+
+            env = envvars;
+            pre-commit = { inherit hooks; };
+            difftastic.enable = true;
+            cachix.enable = true;
           }];
         };
 

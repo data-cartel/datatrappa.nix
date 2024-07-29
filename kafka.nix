@@ -1,15 +1,10 @@
 { pkgs }: rec {
   apacheKafka = pkgs.apacheKafka.overrideAttrs (super: rec {
-    kafkaVersion = "3.7.0";
-    scalaVersion = "2.13";
-
     pname = "apache-kafka";
-    version = "${scalaVersion}-${kafkaVersion}";
+    version = "2.13-3.7.0";
     src = pkgs.fetchurl {
-      url = let
-        baseUrl = "https://downloads.apache.org/kafka";
-        archive = "kafka_${scalaVersion}-${kafkaVersion}.tgz";
-      in "${baseUrl}/${kafkaVersion}/${archive}";
+      url =
+        "https://downloads.apache.org/kafka/${version}/kafka_${version}.tgz";
       sha256 = "sha256-ZfJuWTe7t23+eN+0FnMN+n4zeLJ+E/0eIE8aEJm/r5w=";
     };
   });
@@ -31,20 +26,21 @@
 
   shellDeps = with pkgs; [ apacheKafka kafkactl zulu ];
 
-  scripts = with packages; {
-    kafkup.exec = let
+  cmd = with packages; {
+    kafkup = let
       storage = "${apacheKafka}/bin/kafka-storage.sh";
       start = "${apacheKafka}/bin/kafka-server-start.sh";
     in ''
       if [ -z "$KAFKA_CLUSTER_ID" ]; then
         export KAFKA_CLUSTER_ID=$(${storage} random-uuid)
+        rm -rfv /tmp/kraft-combined-logs
       fi
 
       ${storage} format -g -t "$KAFKA_CLUSTER_ID" -c ${serverProperties}
       ${start} -daemon ${serverProperties}
     '';
 
-    kafkout.exec = ''
+    kafkout = ''
       ${apacheKafka}/bin/kafka-server-stop.sh
     '';
   };
