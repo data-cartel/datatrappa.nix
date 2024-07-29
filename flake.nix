@@ -16,6 +16,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.pre-commit-hooks.follows = "pre-commit-hooks";
     };
+    deploy-rs = {
+      url = "github:serokell/deploy-rs";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # Scala
     typelevel = {
@@ -29,8 +33,21 @@
   };
 
   outputs = { self, nixpkgs, systems, flake-utils, pre-commit-hooks, devenv
-    , typelevel, sbt, }@inputs:
-    flake-utils.lib.eachDefaultSystem (system:
+    , deploy-rs, typelevel, sbt, }@inputs:
+    {
+      deploy.nodes.example = {
+        hostname = "placeholder";
+        sshOpts = [ "-p" "666420" ];
+        profiles.akash = {
+          user = "root";
+          path = deploy-rs.lib.x86_64-linux.activate.custom
+            self.packages.x86_64-linux.default "bin/sparcala";
+        };
+      };
+
+      checks = builtins.mapAttrs
+        (system: deployLib: deployLib.deployChecks self.deploy) deploy-rs.lib;
+    } // flake-utils.lib.eachDefaultSystem (system:
       let
         version = "0.1.0";
         pkgs = import nixpkgs {
@@ -98,7 +115,7 @@
             src = ./.;
 
             # Note: if you update nixpkgs, sbt-derivation or the dependencies in your project, the hash will change!
-            depsSha256 = "sha256-Nn6C7GOHnqCqSG01WiGrbU49M4899NWpIdpXWhI4kzU=";
+            depsSha256 = "sha256-v50Nq5CFQrJTg7HbGWwtAdeqnshqj3cQtasYo/Rkzho=";
             buildPhase = "sbt assembly";
             installPhase = ''
               mkdir -p $out/
@@ -161,6 +178,7 @@
 
       in rec {
         packages = kafka.packages // {
+          default = sparcala.package;
           spark = spark.pkg;
           sparcala = sparcala.package;
           devenv-up = self.devShells.${system}.default.config.procfileScript;
