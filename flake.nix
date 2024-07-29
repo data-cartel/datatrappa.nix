@@ -53,12 +53,11 @@
             };
           });
 
-          # # NOTE: For some reason the folder is still called 3.4.0 when the version is 3.4.1
-          # home = "${spark.pkg}/lib/spark-3.4.0";
           home = "${spark.pkg}";
-
           env = {
             SPARK_HOME = "${spark.home}";
+            SPARK_CONF_DIR =
+              "~/code/0xgleb/data-cartel/datatrappa.nix/sparkonf";
             SPARK_LOG_DIR = "/var/log/spark";
             SPARK_WORKER_DIR = "/var/lib/spark";
             SPARK_LOCAL_IP = "127.0.0.1";
@@ -123,11 +122,6 @@
           docker = pkgs.dockerTools.buildImage {
             name = sparcala.name;
             tag = version;
-            # runAsRoot = ''
-            #   #!${pkgs.runtimeShell}
-            #   mkdir ./labels
-            #   cp ${sparcala.jar}/labels/known-interfaces.json ./labels/
-            # '';
             copyToRoot = pkgs.buildEnv {
               name = sparcala.name;
               paths = [ sparcala.package sparcala.jar ];
@@ -149,13 +143,13 @@
             package = pkgs.nixfmt-classic;
           };
 
-          # scalafmt = {
-          #   enable = true;
-          #   name = "scalafmt";
-          #   files = ".*\\.scala$";
-          #   entry = "${pkgs.scalafmt}/bin/scalafmt";
-          #   pass_filenames = false;
-          # };
+          scalafmt = {
+            enable = true;
+            name = "scalafmt";
+            files = ".*\\.scala$";
+            entry = "${pkgs.scalafmt}/bin/scalafmt";
+            pass_filenames = false;
+          };
           scalafix = {
             enable = true;
             name = "scalafix";
@@ -164,14 +158,6 @@
             pass_filenames = false;
             raw.verbose = true;
           };
-          # sbt-test = {
-          #   enable = true;
-          #   name = "sbt test";
-          #   parquet = ".*\\.scala$";
-          #   entry = with pkgs; "${sbt}/bin/sbt test";
-          #   pass_filenames = false;
-          #   raw.verbose = true;
-          # };
         };
 
       in rec {
@@ -187,18 +173,13 @@
           inherit inputs pkgs;
           modules = [{
             # https://devenv.sh/reference/options/
-
-            # typelevelShell = { jdk.package = pkgs.jdk11; };
-            # imports = [ typelevel.typelevelShell ];
-
             packages = with pkgs;
               [
                 nil
                 nixfmt-classic
+                dhall
                 pqrs
                 parquet-tools
-                bottom
-                parallel
                 jdk11
                 metals
                 grafana

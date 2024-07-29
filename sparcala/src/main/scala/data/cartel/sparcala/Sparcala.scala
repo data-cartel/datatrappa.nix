@@ -1,9 +1,9 @@
 package data.cartel.sparcala
 
+import scala.jdk.CollectionConverters._
+
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{SaveMode, SparkSession}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.SparkSession
 
 object Sparcala {
   def main(args: Array[String]): Unit = {
@@ -17,53 +17,53 @@ object Sparcala {
         .setAppName("Sparcala")
 
     val spark =
-      SparkSession.builder().config(conf).appName("SPARCALA").getOrCreate()
-    spark.sparkContext.setLogLevel("WARN")
+      SparkSession
+        .builder()
+        .config(conf)
+        .appName("SPARCALA")
+        .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.13")
+        .getOrCreate()
+
+    spark.sparkContext.setLogLevel("DEBUG")
+
+    val producerParams = scala.collection.mutable
+      .Map[String, Object](
+        "bootstrap.servers" -> "localhost:9092",
+        // "key.deserializer" -> classOf[StringDeserializer],
+        // "value.deserializer" -> classOf[StringDeserializer],
+        // "key.serializer" -> classOf[StringSerializer],
+        // "value.serializer" -> classOf[StringSerializer],
+        // "group.id" -> "smoketest",
+        "auto.offset.reset" -> "latest",
+        "enable.auto.commit" -> (false: java.lang.Boolean)
+      )
+      .asJava
+
+    val topic = "smoketest"
+    // val admin = AdminClient.create(kafkaParams)
+    // val newTopic = new NewTopic(topic, 1, 1.toShort)
+    // admin.createTopics(Seq(newTopic).asJava)
 
     val df = spark.read.text("README.md")
 
     df.show()
-
-    import spark.implicits._
-    val ds = df
-      .selectExpr("CAST(value AS STRING)")
-      .writeStream
+    df.write
       .format("kafka")
       .option("kafka.bootstrap.servers", "localhost:9092")
-      .option("topic", "smoketest")
+      .option("topic", topic)
+      .save()
+
+    val stream = spark.readStream
+      .format("kafka")
+      .option("kafka.bootstrap.servers", "localhost:9092")
+      .option("subscribe", topic)
+      .load()
+
+    stream.writeStream
+      .format("console")
       .start()
+      .awaitTermination()
 
     spark.stop()
   }
-
-  // def stream(spark: SparkSession, dataDir: String) = {
-  //   import spark.implicits._
-
-  //   val blocks = spark.readStream.schema(Shape.block).json(s"$dataDir/blocks")
-
-  //   val addresses =
-  //     blocks
-  //       .select($"chain", explode(col("transactions")).as("tx"))
-  //       .select($"chain", array(col("tx.to")).as("addresses"))
-  //       .select($"chain", explode(col("addresses")).as("address"))
-  //       .where("address is not null")
-
-  //   addresses.writeStream
-  //     .option("checkpointLocation", s"$dataDir/getcode/.checkpoint")
-  //     .foreachBatch {
-  //       (batchDf: org.apache.spark.sql.DataFrame, batchId: Long) =>
-  //         println(s"batchId = $batchId, batchDf.count() = ${batchDf.count()}")
-  //         val distinctDf = batchDf.distinct()
-  //         println(
-  //           s"batchId = $batchId, distinctDf.count() = ${distinctDf.count()}"
-  //         )
-
-  //         distinctDf.write
-  //           .mode(SaveMode.Append)
-  //           .json(s"$dataDir/getcode")
-  //     }
-  //     .trigger(Trigger.ProcessingTime("1 minute"))
-  //     .start()
-  //     .awaitTermination()
-  // }
 }

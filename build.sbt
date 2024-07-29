@@ -9,10 +9,9 @@ ThisBuild / resolvers ++= Seq(
     Resolver.ivyStylePatterns
   )
 )
-ThisBuild / scalafixDependencies += "org.typelevel" %% "typelevel-scalafix" % "0.2.0"
 
 Global / onChangedBuildSource := ReloadOnSourceChanges
-
+ThisBuild / scalafixDependencies += "org.typelevel" %% "typelevel-scalafix" % "0.3.1"
 ThisBuild / testFrameworks += new TestFramework("munit.Framework")
 Test / testOptions += Tests.Argument(
   TestFrameworks.MUnit
@@ -26,7 +25,7 @@ lazy val munit =
     "org.typelevel" %% "munit-cats-effect" % "2.0.0-M3" % Test
   )
 
-val Scala2 = "2.13.11"
+val Scala2 = "2.13.14"
 lazy val scala2Settings = Seq(
   scalaVersion := Scala2,
   semanticdbEnabled := true,
@@ -34,15 +33,11 @@ lazy val scala2Settings = Seq(
   scalacOptions ++= Seq(
     "-Ytasty-reader",
     "-Wunused:imports",
+    "-deprecation",
     "-Yrangepos",
     "-feature"
   )
 )
-
-val SparkVersion = "3.5.1"
-lazy val Spark = Seq("spark-core", "spark-sql", "spark-sql-kafka-0-10")
-  .map("org.apache.spark" %% _)
-  .map(_ % SparkVersion % "provided")
 
 lazy val root = (project in file("."))
   .aggregate(sparcala)
@@ -51,12 +46,21 @@ lazy val root = (project in file("."))
     scalafixOnCompile := true
   )
 
+val SparkVersion = "3.5.1"
+val KafkaVersion = "3.7.0"
+
 lazy val sparcala = (project in file("sparcala"))
   .settings(scala2Settings)
   .settings(name := "sparcala")
   .settings(
-    // libraryDependencies ++= Spark ++ Frameless,
-    libraryDependencies ++= Spark,
+    libraryDependencies ++= Seq(
+      "org.apache.spark" %% "spark-core" % SparkVersion % Provided,
+      "org.apache.spark" %% "spark-sql" % SparkVersion % Provided,
+      "org.apache.spark" %% "spark-sql-kafka-0-10" % SparkVersion,
+      "org.apache.spark" %% "spark-streaming" % SparkVersion,
+      "org.apache.spark" %% "spark-streaming-kafka-0-10" % SparkVersion
+      // "org.apache.kafka" % "kafka-streams" % KafkaVersion
+    ),
     assembly / mainClass := Some("data.cartel.sparcala.Sparcala"),
     assembly / assemblyJarName := "sparcala.jar",
     assembly / assemblyShadeRules := Seq(

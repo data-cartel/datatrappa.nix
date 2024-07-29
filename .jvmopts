@@ -1,1 +1,1 @@
--Dcats.effect.tracing.mode=none
+-Xmx12g -Xms12g
