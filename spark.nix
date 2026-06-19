@@ -60,7 +60,7 @@
     scalapuff = ''
       ${pkgs.sbt}/bin/sbt assembly \
         && ${pkg}/bin/spark-submit \
-            --class data.cartel.sparcala.Sparcala \
+            --class data.clique.sparcala.Sparcala \
             --master spark://${env.SPARK_MASTER_HOST}:${env.SPARK_MASTER_PORT} \
             sparcala/target/scala-2.13/sparcala.jar
     '';

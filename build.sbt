@@ -1,4 +1,4 @@
-ThisBuild / organization := "data.cartel"
+ThisBuild / organization := "data.clique"
 ThisBuild / version := "0.1.0"
 ThisBuild / resolvers ++= Seq(
   "s01-oss-sonatype".at("https://s01.oss.sonatype.org/content/repositories/snapshots"),
@@ -60,7 +60,7 @@ lazy val sparcala = (project in file("sparcala"))
       "org.apache.spark" %% "spark-streaming-kafka-0-10" % SparkVersion
       // "org.apache.kafka" % "kafka-streams" % KafkaVersion
     ),
-    assembly / mainClass := Some("data.cartel.sparcala.Sparcala"),
+    assembly / mainClass := Some("data.clique.sparcala.Sparcala"),
     assembly / assemblyJarName := "sparcala.jar",
     assembly / assemblyMergeStrategy := {
       case PathList("META-INF", "services", xs @ _*) => MergeStrategy.filterDistinctLines
